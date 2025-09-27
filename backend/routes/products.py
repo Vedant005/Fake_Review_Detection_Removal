@@ -7,12 +7,16 @@ products_bp = Blueprint("products", __name__)
 @products_bp.route("/", methods=["GET"])
 def get_all_products():
     try:
-       
-        page = request.args.get("page", 1, type=int)
+        cursor = request.args.get("cursor", None)
         limit = request.args.get("limit", 20, type=int)
-        offset = (page - 1) * limit
 
-        products = Product.query.offset(offset).limit(limit).all()
+        query = Product.query.order_by(Product.id)
+
+        if cursor:
+        
+            query = query.filter(Product.id > cursor)
+
+        products = query.limit(limit).all()
 
         products_list = []
         for p in products:
@@ -27,18 +31,14 @@ def get_all_products():
                 "actual_price": p.actual_price
             })
 
-        total_products = Product.query.count()
-        total_pages = (total_products + limit - 1) // limit
+        # Determine next cursor
+        next_cursor = products[-1].id if products else None
 
         return jsonify({
             "success": True,
             "data": products_list,
-            "pagination": {
-                "page": page,
-                "limit": limit,
-                "total_pages": total_pages,
-                "total_products": total_products
-            }
+            "next_cursor": next_cursor,
+            "limit": limit
         }), 200
 
     except Exception as e:
