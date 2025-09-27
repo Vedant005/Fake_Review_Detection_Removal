@@ -1,46 +1,58 @@
 from flask import Blueprint, request, jsonify
 from extensions import db
 from models import User
+from werkzeug.security import generate_password_hash, check_password_hash
+import jwt
+import datetime
+import os
 
 users_bp = Blueprint("users", __name__)
 
-@users_bp.route("/", methods=["GET"])
-def get_users():
-    users = User.query.all()
-    return jsonify([{
-        "id": u.id,
-        "user_name": u.user_name,
-        "created_at": u.created_at
-    } for u in users])
+SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")  # Use .env in production
 
-@users_bp.route("/<int:user_id>", methods=["GET"])
-def get_user(user_id):
-    user = User.query.get_or_404(user_id)
-    return jsonify({
-        "id": user.id,
-        "user_name": user.user_name,
-        "created_at": user.created_at
-    })
-
-@users_bp.route("/", methods=["POST"])
-def add_user():
+# Signup route
+@users_bp.route("/signup", methods=["POST"])
+def signup():
     data = request.json
-    new_user = User(user_name=data["user_name"])
+    if not data.get("user_name") or not data.get("email") or not data.get("password"):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    existing_user = User.query.filter_by(email=data["email"]).first()
+    if existing_user:
+        return jsonify({"error": "Email already registered"}), 400
+
+    hashed_password = generate_password_hash(data["password"])
+    new_user = User(
+        user_name=data["user_name"],
+        email=data["email"],
+        password=hashed_password
+    )
     db.session.add(new_user)
     db.session.commit()
-    return jsonify({"message": "User created", "id": new_user.id}), 201
+    return jsonify({"message": "User created successfully", "id": new_user.id}), 201
 
-@users_bp.route("/<int:user_id>", methods=["PUT"])
-def update_user(user_id):
-    user = User.query.get_or_404(user_id)
+
+# Login route
+@users_bp.route("/login", methods=["POST"])
+def login():
     data = request.json
-    user.user_name = data.get("user_name", user.user_name)
-    db.session.commit()
-    return jsonify({"message": "User updated"})
+    if not data.get("email") or not data.get("password"):
+        return jsonify({"error": "Missing email or password"}), 400
 
-@users_bp.route("/<int:user_id>", methods=["DELETE"])
-def delete_user(user_id):
-    user = User.query.get_or_404(user_id)
-    db.session.delete(user)
-    db.session.commit()
-    return jsonify({"message": "User deleted"})
+    user = User.query.filter_by(email=data["email"]).first()
+    if not user or not check_password_hash(user.password, data["password"]):
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    token = jwt.encode({
+        "user_id": user.id,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=12)
+    }, SECRET_KEY, algorithm="HS256")
+
+    return jsonify({"message": "Login successful", "token": token})
+
+
+# Logout route (JWT: client just deletes token)
+@users_bp.route("/logout", methods=["POST"])
+def logout():
+    # With JWT, logout is usually handled client-side by deleting the token
+    return jsonify({"message": "Logout successful"}), 200
