@@ -113,7 +113,6 @@ export default function AnalyzeReviews() {
                       <th className="p-3 border">User ID</th>
                       <th className="p-3 border">Flags</th>
                       <th className="p-3 border">Behavioral Score</th>
-                      <th className="p-3 border">ML Confidence</th>
                       <th className="p-3 border">Final Verdict</th>
                       <th className="p-3 border">Action</th>
 
@@ -144,10 +143,7 @@ export default function AnalyzeReviews() {
                         <td className="p-3 border text-center">
                           {r.behavioral.suspicious_score}
                         </td>
-                        <td className="p-3 border text-center">
-                          {(r.ml.confidence * 100).toFixed(1)}%
-                        </td>
-                        <td className="p-3 border font-bold text-red-600">
+                       <td className="p-3 border font-bold text-red-600">
                           {r.is_fake_final ? "Fake" : "Legit"}
                         </td>
                          <td className="px-4 py-2">
