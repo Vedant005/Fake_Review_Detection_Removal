@@ -71,8 +71,8 @@ def compute_rules(user, review_text, rating, ip, device_fp, duplicate_score, pro
     flag_reasons = []
 
     # Rule: new account extreme ratings
-    if user.created_at:
-        account_age_days = (datetime.utcnow() - user.created_at).days
+    if user.timestamp:
+        account_age_days = (datetime.utcnow() - user.timestamp).days
         if account_age_days < 7 and int(rating) in [1, 5]:
             rules["rule_new_account_extreme"] = True
             flag_reasons.append("new_account_extreme")
@@ -148,7 +148,7 @@ def get_review(review_id):
         "review_title": r.review_title,
         "review_body": r.review_body,
         "rating": str(r.rating),
-        "created_at": r.created_at
+        "timestamp": r.timestamp
     })
 
 @reviews_bp.route("/", methods=["POST"])
@@ -235,22 +235,33 @@ def update_review(review_id):
     db.session.commit()
     return jsonify({"message": "Review updated"})
 
-@reviews_bp.route("/<int:review_id>", methods=["DELETE"])
+@reviews_bp.route("/<string:review_id>", methods=["DELETE"])
 def delete_review(review_id):
-    review = Review.query.get_or_404(review_id)
-    db.session.delete(review)
-    db.session.commit()
-    return jsonify({"message": "Review deleted"})
+    try:
+        review = Review.query.get(review_id)
+        if not review:
+            return jsonify({"success": False, "error": "Review not found"}), 404
+
+        db.session.delete(review)
+        db.session.commit()
+
+        return jsonify({"success": True, "message": "Review deleted"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @reviews_bp.route("/analyze_all", methods=["POST"])
 def analyze_all_reviews():
     # Step 1: Check if we already have analyzed reviews
     already_analyzed = Review.query.filter(Review.is_fake.isnot(None)).count()
 
-    if already_analyzed == 0:
-        reviews = Review.query.all()
-    else:
-        reviews = Review.query.filter(Review.is_fake.is_(None)).all()
+    # if already_analyzed == 0:
+    #     reviews = Review.query.all()
+    # else:
+    #     reviews = Review.query.filter(Review.is_fake.is_(None)).all()
+
+    reviews = Review.query.all()
 
     if not reviews:
         return jsonify({"message": "No new reviews to analyze"}), 200
@@ -267,7 +278,7 @@ def analyze_all_reviews():
         {
             "id": r.id,
             "user_id": r.user_id,
-            "created_at": r.created_at,
+            "timestamp": r.timestamp,
             "device_fingerprint": r.device_fingerprint,
             "user_ip": r.user_ip,
             "is_fake_rule_based": r.is_fake_rule_based,
@@ -294,7 +305,7 @@ def analyze_all_reviews():
             or behavioral_results.get("is_fake_behavioral", False)
         )
 
-        review.is_fake = is_fake_final  # Save result
+        review.is_fake = 1 if is_fake_final else 0
 
         if is_fake_final:
             flagged_users.add(review.user_id)
@@ -312,7 +323,7 @@ def analyze_all_reviews():
 
     return jsonify({
         "message": "Analysis complete",
-        "mode": "full" if already_analyzed == 0 else "incremental",
+        # "mode": "full" if already_analyzed == 0 else "incremental",
         "flagged_reviews": [r for r in results if r["is_fake_final"]],
         "flagged_users": list(flagged_users),
         "total_analyzed": len(reviews),
