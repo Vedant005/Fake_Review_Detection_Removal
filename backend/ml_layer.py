@@ -2,6 +2,13 @@
 import joblib
 import re
 import os
+import datetime
+from collections import Counter
+from typing import Dict, Any
+from statistics import mean
+
+from collections import defaultdict
+from datetime import timedelta
 
 MODEL_PATH = "/ml_model.pkl"
 VECTORIZER_PATH = "/vectorizer.pkl"
@@ -32,93 +39,82 @@ def ml_model_predict(review_text: str) -> dict:
         "confidence": float(prob)
     }
 
-# ml_layer.py (or you can keep it in a separate file like behavior_layer.py)
-import datetime
-from collections import Counter
-from typing import Dict, Any
-from statistics import mean
 
-def behavioral_analysis(user_reviews: list[Dict[str, Any]]) -> Dict[str, Any]:
+def behavioral_analysis(all_reviews: list) -> dict:
     """
-    Analyze user behavior to detect suspicious review activity.
+    Analyze reviews across all users/devices for suspicious behavior.
 
-    Args:
-        user_reviews (list): List of reviews for a specific user. Each review is a dict:
-            {
-                "created_at": datetime,
-                "device_fingerprint": str,
-                "user_ip": str,
-                "is_fake_rule_based": bool,
-                "is_fake_ml": bool,
-                ...
-            }
+    Input: list of dicts, each review containing:
+      {
+        "id": int,
+        "user_id": int,
+        "created_at": datetime,
+        "device_fingerprint": str,
+        "user_ip": str,
+        "is_fake_rule_based": bool,
+        "is_fake_ml": bool or None,
+        "clean_review_text": str
+      }
 
-    Returns:
-        dict: {
-            "suspicious_score": float,
-            "behavior_flags": list,
-            "is_fake_behavioral": bool
-        }
+    Output: dict { review_id: { "is_fake_behavioral": bool, "flags": [...], "suspicious_score": float } }
     """
+    results = {}
+    flags_by_review = defaultdict(list)
+    suspicious_score_by_review = defaultdict(float)
 
-    if not user_reviews:
-        return {
-            "suspicious_score": 0.0,
-            "behavior_flags": [],
-            "is_fake_behavioral": False,
+    # Group reviews by user, device, and IP
+    reviews_by_user = defaultdict(list)
+    reviews_by_device = defaultdict(list)
+    reviews_by_ip = defaultdict(list)
+
+    for r in all_reviews:
+        reviews_by_user[r["user_id"]].append(r)
+        reviews_by_device[r["device_fingerprint"]].append(r)
+        reviews_by_ip[r["user_ip"]].append(r)
+
+    # --- Rule 1: Burst activity (too many reviews in short time) ---
+    for user_id, user_reviews in reviews_by_user.items():
+        user_reviews_sorted = sorted(user_reviews, key=lambda x: x["created_at"])
+        for i in range(1, len(user_reviews_sorted)):
+            delta = user_reviews_sorted[i]["created_at"] - user_reviews_sorted[i - 1]["created_at"]
+            if delta < timedelta(minutes=5):  # reviews within 5 minutes
+                rid = user_reviews_sorted[i]["id"]
+                flags_by_review[rid].append("burst_activity")
+                suspicious_score_by_review[rid] += 0.4
+
+    # --- Rule 2: Same device used across multiple users ---
+    for device, reviews in reviews_by_device.items():
+        if len({r["user_id"] for r in reviews}) > 2:  # more than 2 users share device
+            for r in reviews:
+                flags_by_review[r["id"]].append("shared_device")
+                suspicious_score_by_review[r["id"]] += 0.5
+
+    # --- Rule 3: Same IP used across multiple users ---
+    for ip, reviews in reviews_by_ip.items():
+        if len({r["user_id"] for r in reviews}) > 3:  # more than 3 users share IP
+            for r in reviews:
+                flags_by_review[r["id"]].append("shared_ip")
+                suspicious_score_by_review[r["id"]] += 0.5
+
+    # --- Rule 4: Users with many flagged reviews ---
+    user_fake_counts = {uid: sum(1 for r in reviews if r.get("is_fake_rule_based") or r.get("is_fake_ml"))
+                        for uid, reviews in reviews_by_user.items()}
+    for uid, count in user_fake_counts.items():
+        if count >= 3:  # if a user already has 3+ fake signals
+            for r in reviews_by_user[uid]:
+                flags_by_review[r["id"]].append("repeat_offender")
+                suspicious_score_by_review[r["id"]] += 0.7
+
+    # --- Combine results ---
+    for r in all_reviews:
+        rid = r["id"]
+        score = suspicious_score_by_review[rid]
+        is_fake_behavioral = score >= 0.7 or len(flags_by_review[rid]) > 0
+
+        results[rid] = {
+            "is_fake_behavioral": is_fake_behavioral,
+            "flags": flags_by_review[rid],
+            "suspicious_score": round(score, 2)
         }
 
-    behavior_flags = []
-    suspicious_score = 0.0
-
-    # --- Rule 1: Burst activity (too many reviews in a short time) ---
-    timestamps = sorted([r["created_at"] for r in user_reviews if "created_at" in r])
-    if len(timestamps) >= 3:
-        time_diffs = [
-            (timestamps[i + 1] - timestamps[i]).total_seconds()
-            for i in range(len(timestamps) - 1)
-        ]
-        avg_gap = mean(time_diffs) if time_diffs else float("inf")
-        if avg_gap < 60:  # less than 1 minute avg gap
-            behavior_flags.append("burst_activity")
-            suspicious_score += 0.3
-
-    # --- Rule 2: Duplicate devices or IPs used by multiple accounts ---
-    device_counts = Counter([r.get("device_fingerprint") for r in user_reviews])
-    ip_counts = Counter([r.get("user_ip") for r in user_reviews])
-
-    if any(count > 3 for count in device_counts.values()):
-        behavior_flags.append("same_device_multiple_reviews")
-        suspicious_score += 0.25
-
-    if any(count > 3 for count in ip_counts.values()):
-        behavior_flags.append("same_ip_multiple_reviews")
-        suspicious_score += 0.25
-
-    # --- Rule 3: High proportion of previously flagged reviews ---
-    flagged_reviews = sum(
-        1 for r in user_reviews if r.get("is_fake_rule_based") or r.get("is_fake_ml")
-    )
-    if flagged_reviews / len(user_reviews) > 0.5:  # more than half flagged
-        behavior_flags.append("history_of_fake_reviews")
-        suspicious_score += 0.3
-
-    # --- Rule 4: Extreme review lengths (all very short or very long) ---
-    text_lengths = [len(r.get("clean_review_text", "")) for r in user_reviews]
-    if text_lengths:
-        avg_length = mean(text_lengths)
-        if avg_length < 10:  # all too short
-            behavior_flags.append("low_quality_spammy_reviews")
-            suspicious_score += 0.15
-        elif avg_length > 1000:  # unusually long spams
-            behavior_flags.append("suspiciously_long_reviews")
-            suspicious_score += 0.15
-
-    # Cap suspicious score at 1.0
-    suspicious_score = min(1.0, suspicious_score)
-
-    return {
-        "suspicious_score": suspicious_score,
-        "behavior_flags": behavior_flags,
-        "is_fake_behavioral": suspicious_score >= 0.5,
-    }
+    return results
