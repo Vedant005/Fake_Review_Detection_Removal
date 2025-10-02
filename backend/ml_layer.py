@@ -48,7 +48,7 @@ def behavioral_analysis(all_reviews: list) -> dict:
       {
         "id": int,
         "user_id": int,
-        "created_at": datetime,
+        "timestamp": datetime,
         "device_fingerprint": str,
         "user_ip": str,
         "is_fake_rule_based": bool,
@@ -72,17 +72,15 @@ def behavioral_analysis(all_reviews: list) -> dict:
         reviews_by_device[r["device_fingerprint"]].append(r)
         reviews_by_ip[r["user_ip"]].append(r)
 
-    # --- Rule 1: Burst activity (too many reviews in short time) ---
     for user_id, user_reviews in reviews_by_user.items():
-        user_reviews_sorted = sorted(user_reviews, key=lambda x: x["created_at"])
+        user_reviews_sorted = sorted(user_reviews, key=lambda x: x["timestamp"])
         for i in range(1, len(user_reviews_sorted)):
-            delta = user_reviews_sorted[i]["created_at"] - user_reviews_sorted[i - 1]["created_at"]
+            delta = user_reviews_sorted[i]["timestamp"] - user_reviews_sorted[i - 1]["timestamp"]
             if delta < timedelta(minutes=5):  # reviews within 5 minutes
                 rid = user_reviews_sorted[i]["id"]
                 flags_by_review[rid].append("burst_activity")
                 suspicious_score_by_review[rid] += 0.4
 
-    # --- Rule 2: Same device used across multiple users ---
     for device, reviews in reviews_by_device.items():
         if len({r["user_id"] for r in reviews}) > 2:  # more than 2 users share device
             for r in reviews:
