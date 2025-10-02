@@ -7,8 +7,8 @@ import AnalyzeReviews from "./pages/AnalyseReview";
 import SeeReviews from "./pages/SeeReviews";
 import Header from "./components/Header";
 // import SingleProduct from "./pages/SingleProduct";
-// import Signup from "./pages/Signup";
-// import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Login from "./pages/Login";
 // import Profile from "./pages/Profile";
 // import AdminDashboard from "./pages/AdminDashboard";
 
@@ -24,9 +24,9 @@ export default function App(){
           <Route path="reviews" element={<SeeReviews />} />
           <Route path="analyze" element={<AnalyzeReviews />} />
         </Route>
-      {/* <Route path="/signup" element={<Signup/>}/>
+      <Route path="/signup" element={<Signup/>}/>
       <Route path="/login" element={<Login/>}/>
-      <Route path="/profile" element={<Profile/>}/> */}
+      {/* <Route path="/profile" element={<Profile/>}/> */}
       
     </Routes>
     </>
