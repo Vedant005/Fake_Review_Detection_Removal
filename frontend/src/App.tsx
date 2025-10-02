@@ -5,6 +5,7 @@ import SingleProduct from "./pages/SingleProductPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import AnalyzeReviews from "./pages/AnalyseReview";
 import SeeReviews from "./pages/SeeReviews";
+import Header from "./components/Header";
 // import SingleProduct from "./pages/SingleProduct";
 // import Signup from "./pages/Signup";
 // import Login from "./pages/Login";
@@ -13,6 +14,8 @@ import SeeReviews from "./pages/SeeReviews";
 
 export default function App(){
   return (
+    <>
+       <Header />
     <Routes>
       <Route path="/" element={<Home/>}/>
       <Route path="/products" element={<ProductPage/>}/>
@@ -21,10 +24,11 @@ export default function App(){
           <Route path="reviews" element={<SeeReviews />} />
           <Route path="analyze" element={<AnalyzeReviews />} />
         </Route>
-      {/*<Route path="/signup" element={<Signup/>}/>
+      {/* <Route path="/signup" element={<Signup/>}/>
       <Route path="/login" element={<Login/>}/>
-      <Route path="/profile" element={<Profile/>}/>
-      <Route path="/admin" element={<AdminDashboard/>}/> */}
+      <Route path="/profile" element={<Profile/>}/> */}
+      
     </Routes>
+    </>
   );
 }
