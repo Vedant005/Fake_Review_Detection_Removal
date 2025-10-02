@@ -1,35 +1,30 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route } from "react-router-dom";
+import Home from "./pages/HomePage";
+import ProductPage from "./pages/ProductPage";
+import SingleProduct from "./pages/SingleProductPage";
+import AdminDashboard from "./pages/AdminDashboard";
+import AnalyzeReviews from "./pages/AnalyseReview";
+import SeeReviews from "./pages/SeeReviews";
+// import SingleProduct from "./pages/SingleProduct";
+// import Signup from "./pages/Signup";
+// import Login from "./pages/Login";
+// import Profile from "./pages/Profile";
+// import AdminDashboard from "./pages/AdminDashboard";
 
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App(){
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <Routes>
+      <Route path="/" element={<Home/>}/>
+      <Route path="/products" element={<ProductPage/>}/>
+       <Route path="/product/:productId" element={<SingleProduct/>}/>
+       <Route path="/admin" element={<AdminDashboard />}>
+          <Route path="reviews" element={<SeeReviews />} />
+          <Route path="analyze" element={<AnalyzeReviews />} />
+        </Route>
+      {/*<Route path="/signup" element={<Signup/>}/>
+      <Route path="/login" element={<Login/>}/>
+      <Route path="/profile" element={<Profile/>}/>
+      <Route path="/admin" element={<AdminDashboard/>}/> */}
+    </Routes>
+  );
 }
-
-export default App
