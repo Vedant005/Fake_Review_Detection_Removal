@@ -37,10 +37,7 @@ class Review(db.Model):
 
     duplicate_review_score = db.Column(db.Float)
     suspicion_score_weighted = db.Column(db.Float)
-    
     flag_reasons = db.Column(db.Text)  # comma-separated reasons
-
-
 
     # Rule flags (Numerics or integers)
     rule_rate_limit = db.Column(db.Numeric)
@@ -51,8 +48,16 @@ class Review(db.Model):
     rule_low_quality = db.Column(db.Numeric)
     rule_burst_activity = db.Column(db.Numeric)
 
+    # --- Layer 2 (ML results) ---
+    is_fake_ml = db.Column(db.Numeric)       # 0 or 1
+    ml_confidence = db.Column(db.Float)      # confidence score
 
-    # --- Labeling/Decision fields ---
-    is_fake = db.Column(db.Numeric)
+    # --- Layer 3 (Behavioral results) ---
+    is_fake_behavioral = db.Column(db.Numeric)   # 0 or 1
+    behavioral_flags = db.Column(db.Text)        # e.g. "burst_activity,shared_device"
+    behavioral_score = db.Column(db.Float)       # suspicious score
+
+    # --- Final Labeling/Decision fields ---
+    is_fake = db.Column(db.Numeric)          # final decision
     is_fake_rule_based = db.Column(db.Numeric)
     label_source = db.Column(db.String(100))
