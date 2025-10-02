@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from backend.ml_layer import behavioral_analysis, ml_model_predict
+from ml_layer import behavioral_analysis, ml_model_predict
 from extensions import db
 from models import Review, User
 from difflib import SequenceMatcher
@@ -94,18 +94,49 @@ def compute_rules(user, review_text, rating, ip, device_fp, duplicate_score, pro
 
     return rules, ", ".join(set(flag_reasons))
 
+
 @reviews_bp.route("/", methods=["GET"])
 def get_reviews():
-    reviews = Review.query.all()
-    return jsonify([{
-        "id": r.id,
-        "product_id": r.product_id,
-        "user_id": r.user_id,
-        "rating": str(r.rating),
-        "review_text": r.review_text,
-        "timestamp": r.timestamp,
+    try:
+        cursor = request.args.get("cursor", None)
+        limit = request.args.get("limit", 20, type=int)
+        product_id = request.args.get("product_id", None)  # optional filter
 
-    } for r in reviews])
+        query = Review.query.order_by(Review.id)
+
+        # Filter by product if provided
+        if product_id:
+            query = query.filter(Review.product_id == product_id)
+
+        # Cursor-based pagination
+        if cursor:
+            query = query.filter(Review.id > cursor)
+
+        reviews = query.limit(limit).all()
+
+        reviews_list = []
+        for r in reviews:
+            reviews_list.append({
+                "id": r.id,
+                "product_id": r.product_id,
+                "user_id": r.user_id,
+                "rating": float(r.rating) if r.rating is not None else None,
+                "review_text": r.review_text,
+                "timestamp": r.timestamp.isoformat() if r.timestamp else None
+            })
+
+        # Determine next cursor
+        next_cursor = reviews[-1].id if reviews else None
+
+        return jsonify({
+            "success": True,
+            "data": reviews_list,
+            "next_cursor": next_cursor,
+            "limit": limit
+        }), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @reviews_bp.route("/<int:review_id>", methods=["GET"])
 def get_review(review_id):
@@ -217,31 +248,53 @@ def analyze_all_reviews():
     already_analyzed = Review.query.filter(Review.is_fake.isnot(None)).count()
 
     if already_analyzed == 0:
-        # First run → analyze ALL reviews
         reviews = Review.query.all()
     else:
-        # Subsequent runs → only analyze new/unverified reviews
         reviews = Review.query.filter(Review.is_fake.is_(None)).all()
 
+    if not reviews:
+        return jsonify({"message": "No new reviews to analyze"}), 200
+
+    # ----- Layer 2 (ML predictions per review) -----
+    ml_results_map = {}
+    for review in reviews:
+        ml_results_map[review.id] = ml_model_predict(review.review_text)
+
+    # ----- Layer 3 (Behavioral analysis across ALL reviews) -----
+    # Convert all reviews (including old ones for context)
+    all_reviews = Review.query.all()
+    all_reviews_dict = [
+        {
+            "id": r.id,
+            "user_id": r.user_id,
+            "created_at": r.created_at,
+            "device_fingerprint": r.device_fingerprint,
+            "user_ip": r.user_ip,
+            "is_fake_rule_based": r.is_fake_rule_based,
+            "is_fake_ml": ml_results_map.get(r.id, {}).get("is_fake_ml") if r.id in ml_results_map else None,
+            "clean_review_text": r.clean_review_text or r.review_text,
+        }
+        for r in all_reviews
+    ]
+
+    behavioral_results_map = behavioral_analysis(all_reviews_dict)
+    # Example return: { review_id: { "is_fake_behavioral": bool, "flags": [...], "suspicious_score": float } }
+
+    # ----- Final Decision and DB Update -----
     results = []
     flagged_users = set()
 
     for review in reviews:
-        # ----- Layer 2 -----
-        ml_results = ml_model_predict(review.review_text)
+        ml_results = ml_results_map[review.id]
+        behavioral_results = behavioral_results_map.get(review.id, {})
 
-        # ----- Layer 3 -----
-        behavioral_results = behavioral_analysis(review)
-
-        # ----- Final decision -----
         is_fake_final = (
             review.is_fake_rule_based
             or ml_results["is_fake_ml"]
-            or behavioral_results["is_fake_behavioral"]
+            or behavioral_results.get("is_fake_behavioral", False)
         )
 
-        # Save in DB
-        review.is_fake = is_fake_final
+        review.is_fake = is_fake_final  # Save result
 
         if is_fake_final:
             flagged_users.add(review.user_id)
