@@ -116,14 +116,26 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
 
   // Delete review
   deleteReview: async (reviewId) => {
-    try {
-      set({ loading: true });
-      await fetch(`http://localhost:5000/api/reviews/${reviewId}`, { method: "DELETE" });
-      set({ reviews: get().reviews.filter((r) => r.id !== reviewId) });
-    } catch (err) {
-      console.error("Error deleting review:", err);
-    } finally {
-      set({ loading: false });
+  try {
+    set({ loading: true });
+    const res = await fetch(`http://localhost:5000/api/reviews/${reviewId}`, { 
+      method: "DELETE" 
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || "Failed to delete review");
     }
-  },
+
+    // Update state only if backend confirms deletion
+    set({ reviews: get().reviews.filter((r) => r.id !== reviewId) });
+
+  } catch (err) {
+    console.error("Error deleting review:", err);
+    alert("Failed to delete review. Please try again.");
+  } finally {
+    set({ loading: false });
+  }
+},
+
 }));
