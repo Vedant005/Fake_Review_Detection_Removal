@@ -19,8 +19,13 @@ const ProductPage: React.FC = () => {
           <div
             key={p.id}
              onClick={() => navigate(`/product/${p.id}`)}
-            className="bg-white rounded-lg border-blue-500 shadow hover:shadow-lg transition p-4"
+            className="bg-white rounded-lg border border-blue-600 shadow hover:shadow-lg transition p-4"
           >
+            <img
+              src={`https://picsum.photos/seed/${p.id}/400/250`} 
+              alt={p.name}
+              className="w-full h-48 object-cover rounded-md mb-3"
+            />
             <h2 className="text-lg font-semibold mb-2">{p.name}</h2>
             <p className="text-sm text-gray-500 break-words">{p.category}</p>
             <p className="mt-2 text-gray-700 line-clamp-3">{p.about_product}</p>
