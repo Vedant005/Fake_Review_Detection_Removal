@@ -5,12 +5,15 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 import datetime
 import os
+import uuid
 
 users_bp = Blueprint("users", __name__)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")  # Use .env in production
 
 # Signup route
+import uuid
+
 @users_bp.route("/signup", methods=["POST"])
 def signup():
     data = request.json
@@ -22,14 +25,21 @@ def signup():
         return jsonify({"error": "Email already registered"}), 400
 
     hashed_password = generate_password_hash(data["password"])
+
+    # Generate a random UUID (string)
+    random_id = str(uuid.uuid4())
+
     new_user = User(
+        id=random_id,  # assign custom ID instead of auto increment (if your model supports it)
         user_name=data["user_name"],
         email=data["email"],
         password=hashed_password
     )
     db.session.add(new_user)
     db.session.commit()
+
     return jsonify({"message": "User created successfully", "id": new_user.id}), 201
+
 
 
 # Login route
@@ -52,7 +62,7 @@ def login():
 
 
 # Logout route (JWT: client just deletes token)
-@users_bp.route("/logout", methods=["POST"])
+@users_bp.route("/logout", methods=["POST"])    
 def logout():
     # With JWT, logout is usually handled client-side by deleting the token
     return jsonify({"message": "Logout successful"}), 200

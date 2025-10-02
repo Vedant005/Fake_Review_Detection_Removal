@@ -8,6 +8,7 @@ from faker import Faker
 import re
 import hashlib
 import random
+import uuid
 
 reviews_bp = Blueprint("reviews", __name__)
 fake = Faker()
@@ -71,8 +72,8 @@ def compute_rules(user, review_text, rating, ip, device_fp, duplicate_score, pro
     flag_reasons = []
 
     # Rule: new account extreme ratings
-    if user.timestamp:
-        account_age_days = (datetime.utcnow() - user.timestamp).days
+    if user.created_at:
+        account_age_days = (datetime.utcnow() - user.created_at).days
         if account_age_days < 7 and int(rating) in [1, 5]:
             rules["rule_new_account_extreme"] = True
             flag_reasons.append("new_account_extreme")
@@ -145,8 +146,7 @@ def get_review(review_id):
         "id": r.id,
         "product_id": r.product_id,
         "user_id": r.user_id,
-        "review_title": r.review_title,
-        "review_body": r.review_body,
+        "review_text": r.review_text,
         "rating": str(r.rating),
         "timestamp": r.timestamp
     })
@@ -170,6 +170,7 @@ def add_review():
     duplicate_score = get_duplicate_score(clean_review_text, existing_texts)
 
     # Get user
+    
     user = User.query.get(data["user_id"])
 
     # Compute rules
@@ -187,30 +188,30 @@ def add_review():
         "rule_same_device": 0.2,
         "rule_burst_activity": 0.3,
     }
-    weighted_score_raw = sum(w for r, w in weights.items() if rules[r])
+    # weighted_score_raw = sum(w for r, w in weights.items() if rules[r])
 
     # Decide fake flag
     is_fake_rule_based = int(any(rules.values()))
-
+    random_id = str(uuid.uuid4())
     new_review = Review(
+        id=random_id,
         product_id=data["product_id"],
         user_id=data["user_id"],
-        review_title=data.get("review_title"),
         review_text=data["review_text"],
         rating=rating,
         user_ip=user_ip,
         device_fingerprint=device_fingerprint,
         clean_review_text=clean_review_text,
         duplicate_review_score=duplicate_score,
-        weighted_score_raw=weighted_score_raw,
+        # weighted_score_raw=weighted_score_raw,
         flag_reasons=flag_reasons,
-        rule_rate_limit=rules["rule_rate_limit"],
-        rule_new_account_extreme=rules["rule_new_account_extreme"],
-        rule_duplicate_text=rules["rule_duplicate_text"],
-        rule_vpn_ip=rules["rule_vpn_ip"],
-        rule_same_device=rules["rule_same_device"],
-        rule_low_quality=rules["rule_low_quality"],
-        rule_burst_activity=rules["rule_burst_activity"],
+        rule_rate_limit=int(rules["rule_rate_limit"]),
+        rule_new_account_extreme=int(rules["rule_new_account_extreme"]),
+        rule_duplicate_text=int(rules["rule_duplicate_text"]),
+        rule_vpn_ip=int(rules["rule_vpn_ip"]),
+        rule_same_device=int(rules["rule_same_device"]),
+        rule_low_quality=int(rules["rule_low_quality"]),
+        rule_burst_activity=int(rules["rule_burst_activity"]),
         is_fake_rule_based=is_fake_rule_based,
         label_source="rule_engine"
     )
@@ -220,7 +221,7 @@ def add_review():
 
     return jsonify({
         "message": "Review added",
-        "id": new_review.id,
+        "id":new_review.id,
         "is_fake_rule_based": is_fake_rule_based,
         "flag_reasons": flag_reasons
     }), 201
@@ -229,8 +230,7 @@ def add_review():
 def update_review(review_id):
     review = Review.query.get_or_404(review_id)
     data = request.json
-    review.review_title = data.get("review_title", review.review_title)
-    review.review_body = data.get("review_body", review.review_body)
+    review.review_text = data.get("review_text", review.review_text)
     review.rating = data.get("rating", review.rating)
     db.session.commit()
     return jsonify({"message": "Review updated"})
