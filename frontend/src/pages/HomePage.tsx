@@ -1,5 +1,5 @@
 import React from "react";
-import { ShoppingCart, Search, Star } from "lucide-react";
+import { Star } from "lucide-react";
 
 
 const Home: React.FC = () => {
@@ -33,7 +33,7 @@ const Home: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Navbar */}
-      <header className="bg-white shadow-md sticky top-0 z-50">
+      {/* <header className="bg-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-indigo-600">ShopSphere</h1>
           <div className="flex items-center gap-4">
@@ -53,7 +53,7 @@ const Home: React.FC = () => {
             </button>
           </div>
         </div>
-      </header>
+      </header> */}
 
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-20 px-6 text-center">
