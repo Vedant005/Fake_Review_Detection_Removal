@@ -253,7 +253,7 @@ def delete_review(review_id):
 
 @reviews_bp.route("/analyze_all", methods=["POST"])
 def analyze_all_reviews():
-    # Step 1: Check if we already have analyzed reviews
+    
     already_analyzed = Review.query.filter(Review.is_fake.isnot(None)).count()
 
     # if already_analyzed == 0:
@@ -289,7 +289,7 @@ def analyze_all_reviews():
     ]
 
     behavioral_results_map = behavioral_analysis(all_reviews_dict)
-    # Example return: { review_id: { "is_fake_behavioral": bool, "flags": [...], "suspicious_score": float } }
+   
 
     # ----- Final Decision and DB Update -----
     results = []
