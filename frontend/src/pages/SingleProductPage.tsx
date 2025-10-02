@@ -2,6 +2,7 @@ import {  useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useProductStore } from "../stores/useProductStore";
 import { useReviewStore } from "../stores/useReviewStore";
+import { useUserStore } from "../stores/useUserStore";
 
 // interface Product {
 //   id: string;
@@ -15,8 +16,9 @@ import { useReviewStore } from "../stores/useReviewStore";
 export default function SingleProduct() {
   const {fetchSingleProduct, singleProduct}= useProductStore();
   const { reviews, fetchReviews, addReview } = useReviewStore();
+  const {user}=useUserStore();
   const { productId } = useParams();
-  console.log(singleProduct);
+  console.log(user);
   
   useEffect(() => {
     fetchSingleProduct(productId);
@@ -40,7 +42,7 @@ export default function SingleProduct() {
       {/* Product Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <img
-          src={"https://picsum.photos/id/870/200/300?grayscale&blur=2r"}
+          src={"https://picsum.photos/id/870/200/300"}
           alt={singleProduct.name}
           className="rounded-2xl shadow-lg object-cover w-full h-[400px]"
         />
@@ -107,9 +109,9 @@ export default function SingleProduct() {
           onClick={() =>
           addReview({
             product_id: productId,
-            user_id: "1",
-            rating: 5,
-            review_text: "Amazing product!",
+            user_id: user?.id,
+            rating: newRating,
+            review_text:newReview,
           })
         }
           className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md"
