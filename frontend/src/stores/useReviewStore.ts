@@ -3,7 +3,7 @@ import { create } from "zustand";
 export interface Review {
   id: string;
   product_id?: string;
-  user_id: string;
+  user_id?: string;
   rating: number;
   review_text: string;
   timestamp: string;
