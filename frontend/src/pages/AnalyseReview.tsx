@@ -59,7 +59,8 @@ export default function AnalyzeReviews() {
       console.error("Failed to delete review:", err);
     }
   };
-
+ console.log(result);
+ 
 
   return (
     <div className="p-6">
@@ -174,7 +175,7 @@ export default function AnalyzeReviews() {
             </h2>
             <p><strong>User ID:</strong> {selectedReview.user_id}</p>
             <p><strong>Rule Based:</strong> {selectedReview.rule_based}</p>
-            <p><strong>ML Result:</strong> {selectedReview.ml.is_fake_ml ? "Fake" : "Genuine"} (confidence: {selectedReview.ml.confidence})</p>
+            <p><strong>ML Result:</strong> {selectedReview.ml.is_fake_ml ? "Fake" : "Genuine"}  </p>
             <p>
               <strong>Behavioral:</strong>{" "}
               {selectedReview.behavioral.is_fake_behavioral ? "Suspicious" : "Normal"}
