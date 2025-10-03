@@ -261,7 +261,7 @@ def analyze_all_reviews():
     # else:
     #     reviews = Review.query.filter(Review.is_fake.is_(None)).all()
 
-    reviews = Review.query.all()
+    reviews = Review.query.order_by(Review.timestamp.desc()).all()  
 
     if not reviews:
         return jsonify({"message": "No new reviews to analyze"}), 200
@@ -313,6 +313,7 @@ def analyze_all_reviews():
         results.append({
             "review_id": review.id,
             "user_id": review.user_id,
+            "timestamp": review.timestamp.isoformat(),
             "rule_based": review.is_fake_rule_based,
             "ml": ml_results,
             "behavioral": behavioral_results,
@@ -327,5 +328,6 @@ def analyze_all_reviews():
         "flagged_reviews": [r for r in results if r["is_fake_final"]],
         "flagged_users": list(flagged_users),
         "total_analyzed": len(reviews),
-        "fake_count": len([r for r in results if r["is_fake_final"]])
+        "fake_count": len([r for r in results if r["is_fake_final"]]),
+        "all_reviews": results
     })
