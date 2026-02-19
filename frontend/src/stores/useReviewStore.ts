@@ -84,7 +84,12 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       });
       const data = await res.json();
       if (data.id) {
-        set({ reviews: [{ ...review, id: data.id, timestamp: new Date().toISOString() }, ...get().reviews] });
+        set({
+          reviews: [
+            { ...review, id: data.id, timestamp: new Date().toISOString() },
+            ...get().reviews,
+          ],
+        });
       }
     } catch (err) {
       console.error("Error adding review:", err);
@@ -104,7 +109,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       });
       set({
         reviews: get().reviews.map((r) =>
-          r.id === reviewId ? { ...r, ...updates } : r
+          r.id === reviewId ? { ...r, ...updates } : r,
         ),
       });
     } catch (err) {
@@ -116,26 +121,24 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
 
   // Delete review
   deleteReview: async (reviewId) => {
-  try {
-    set({ loading: true });
-    const res = await fetch(`http://localhost:5000/api/reviews/${reviewId}`, { 
-      method: "DELETE" 
-    });
+    try {
+      set({ loading: true });
+      const res = await fetch(`http://localhost:5000/api/reviews/${reviewId}`, {
+        method: "DELETE",
+      });
 
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || "Failed to delete review");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to delete review");
+      }
+
+      // Update state only if backend confirms deletion
+      set({ reviews: get().reviews.filter((r) => r.id !== reviewId) });
+    } catch (err) {
+      console.error("Error deleting review:", err);
+      alert("Failed to delete review. Please try again.");
+    } finally {
+      set({ loading: false });
     }
-
-    // Update state only if backend confirms deletion
-    set({ reviews: get().reviews.filter((r) => r.id !== reviewId) });
-
-  } catch (err) {
-    console.error("Error deleting review:", err);
-    alert("Failed to delete review. Please try again.");
-  } finally {
-    set({ loading: false });
-  }
-},
-
+  },
 }));
