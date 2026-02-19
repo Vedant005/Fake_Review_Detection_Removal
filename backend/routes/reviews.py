@@ -56,9 +56,6 @@ def check_same_device(device_fp, user_id):
     ).count()
     return other_reviews > 0
 
-# -------------------------------
-# Compute Rules
-# -------------------------------
 def compute_rules(user, review_text, rating, ip, device_fp, duplicate_score, product_id):
     rules = {
         "rule_rate_limit": check_rate_limit(user.id),
@@ -95,39 +92,43 @@ def compute_rules(user, review_text, rating, ip, device_fp, duplicate_score, pro
 
     return rules, ", ".join(set(flag_reasons))
 
-
 @reviews_bp.route("/", methods=["GET"])
 def get_reviews():
     try:
-        cursor = request.args.get("cursor", None)
+        cursor = request.args.get("cursor")  # ISO timestamp
         limit = request.args.get("limit", 20, type=int)
-        product_id = request.args.get("product_id", None)  # optional filter
+        product_id = request.args.get("product_id")
 
-        query = Review.query.order_by(Review.id)
+        query = Review.query
 
-        # Filter by product if provided
+        # Optional product filter
         if product_id:
             query = query.filter(Review.product_id == product_id)
 
-        # Cursor-based pagination
+        # Cursor: load older reviews
         if cursor:
-            query = query.filter(Review.id > cursor)
+            cursor_dt = datetime.fromisoformat(cursor)
+            query = query.filter(Review.timestamp < cursor_dt)
+
+        # 🔥 MOST RECENT FIRST
+        query = query.order_by(Review.timestamp.desc())
 
         reviews = query.limit(limit).all()
 
-        reviews_list = []
-        for r in reviews:
-            reviews_list.append({
+        reviews_list = [
+            {
                 "id": r.id,
                 "product_id": r.product_id,
                 "user_id": r.user_id,
                 "rating": float(r.rating) if r.rating is not None else None,
                 "review_text": r.review_text,
-                "timestamp": r.timestamp.isoformat() if r.timestamp else None
-            })
+                "timestamp": r.timestamp.isoformat()
+            }
+            for r in reviews
+        ]
 
-        # Determine next cursor
-        next_cursor = reviews[-1].id if reviews else None
+        # Cursor = last item's timestamp
+        next_cursor = reviews[-1].timestamp.isoformat() if reviews else None
 
         return jsonify({
             "success": True,
@@ -138,6 +139,7 @@ def get_reviews():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 @reviews_bp.route("/<int:review_id>", methods=["GET"])
 def get_review(review_id):
@@ -288,8 +290,7 @@ def analyze_all_reviews():
         for r in all_reviews
     ]
 
-    behavioral_results_map = behavioral_analysis(all_reviews_dict)
-   
+    behavioral_results_map = behavioral_analysis(all_reviews_dict)  
 
     # ----- Final Decision and DB Update -----
     results = []
